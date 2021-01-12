@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // TinyPNG ...
@@ -38,7 +39,9 @@ func basicAuth(username, password string) string {
 }
 
 // PostFile ...
-func (tiny *TinyPNG) PostFile(filename string) error {
+func (tiny *TinyPNG) PostFile(filename string, wg *sync.WaitGroup) error {
+	defer wg.Done()
+
 	bodyBuf := &bytes.Buffer{}
 	fh, err := os.Open(filename)
 
@@ -109,9 +112,10 @@ func main() {
 		"Basic " + basicAuth("api", os.Getenv("TINY_PNG_KEY")),
 	}
 
+	var wg sync.WaitGroup
+
 	err := filepath.Walk(target,
 		func(path string, info os.FileInfo, err error) error {
-
 			if err != nil {
 				return err
 			}
@@ -122,10 +126,12 @@ func main() {
 
 			// 绝对链接
 			fullpath, _ := filepath.Abs(path)
-
-			return tiny.PostFile(fullpath)
-
+			wg.Add(1)
+			go tiny.PostFile(fullpath, &wg)
+			return nil
 		})
+
+	wg.Wait()
 	if err != nil {
 		log.Println(err)
 	}
