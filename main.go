@@ -82,17 +82,33 @@ func (tiny *TinyPNG) PostFile(filename string, wg *sync.WaitGroup) error {
 		return err
 	}
 
-	// TODO: parse json
 	var tinyResponse TinyPNGResponse
 
 	if err = json.Unmarshal(response, &tinyResponse); err != nil {
 		return err
 	}
 
-	// TODO: expose to invoker
-	println(tinyResponse.Output.URL)
+	tiny.DownloadFile(filename, tinyResponse.Output.URL)
 
 	return nil
+}
+
+// DownloadFile ...
+func (tiny *TinyPNG) DownloadFile(filepath string, url string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 func main() {
